@@ -1,0 +1,859 @@
+-- Recovered runtime. Missing original game dependencies are reported explicitly.
+local globalEnv = getfenv()
+local function createRuntime(overrides)
+    local context = {}
+    for key,value in pairs(overrides or {}) do context[key]=value end
+    local function service(name)
+        if not game then return nil end
+        local ok,value=pcall(game.GetService,game,name)
+        return ok and value or nil
+    end
+    local players=context.Players or service("Players")
+    local player=context.LocalPlayer or (players and players.LocalPlayer)
+    local config=context.spoofConfig or {}
+    context.spoofConfig=config
+    context.Players,context.LocalPlayer=players,player
+    context.Workspace=context.Workspace or workspace
+    context.localOriginalUserId=context.localOriginalUserId or (player and player.UserId) or 0
+    context.localOriginalName=context.localOriginalName or (player and player.Name) or ""
+    context.origUserId=context.origUserId or context.localOriginalUserId
+    context.localUserId=context.localUserId or context.localOriginalUserId
+    context.origPlayerName=context.origPlayerName or context.localOriginalName
+    context.origDisplayName=context.origDisplayName or (player and player.DisplayName) or context.origPlayerName
+    context.origGetPlayerByUserId=context.origGetPlayerByUserId or (players and players.GetPlayerByUserId)
+    context.origGetAttribute=context.origGetAttribute or (player and player.GetAttribute)
+    context.clockFunc=context.clockFunc or os.clock
+    context.cfg=context.cfg or {cacheTtl=0.25}
+    context.beamRotationOffset=context.beamRotationOffset or 0
+    context.prngState=context.prngState or 0
+    context.tickCounter=context.tickCounter or 0
+    for _,key in ipairs({"rankedConfig","ownershipCache","timestampCache","unlockedTable1","unlockedTable2","unlockedTable3","unlockedTable4","unlockedTable5","weaponSkinsMap1","weaponSkinsMap2","weaponSkinsMap3","savedSettings","equippedCosmeticsOverride","specificUnlockedWeapons","ItemDatabase","favoritedWeaponsMap","WeaponConfig","favoritedCosmeticsOverride","equippedEmotesOverride","streakSpoofState","origBillboardOffsets","activeBeamsList","yabujinUsers"})do
+        context[key]=context[key] or {}
+    end
+    context.pingConfig=context.pingConfig or {PingSpoof=false,PingMode="Static",PingValue=50}
+    context.stretchConfig=context.stretchConfig or {x=1,y=1}
+    for _,key in ipairs({"_safeQueue","RealUserIdMap","OtherPlayerOriginals","_menuLockedCosmetics"})do config[key]=config[key] or {}end
+    config._stopped=false
+    local YabujinDeobfuscated={Context=context,Required={},Alive=true}
+    local function resolve(key)
+        if context[key]~=nil then return context[key]end
+        if globalEnv[key]~=nil then return globalEnv[key]end
+        if key=="spooferActive"or key=="forceUnlockAll"or key=="unlockerEnabled"or key=="isActive"then return false end
+        if key=="weaponUnlockMode"then return "None"end
+        if key=="getRealUserId"or key=="getSpoofedPlayerNames"or key=="isCosmeticUnlocked"then
+            return function(...)
+                local name=key=="isCosmeticUnlocked"and"isCosmeticUnlockedCached"or key
+                return assert(YabujinDeobfuscated[name],"Recovered helper unavailable: "..name)(...)
+            end
+        end
+        if key=="getYabujinSpoofField"then
+            return function(userId,field)
+                local user=context.yabujinUsers[userId]or context.yabujinUsers[tostring(userId)]
+                return user and user.spoofer and user.spoofer[field]
+            end
+        end
+        return nil
+    end
+    local runtimeEnv=setmetatable({}, {__index=function(_,key)
+        if context[key]~=nil then return context[key]end
+        return globalEnv[key]
+    end,__newindex=function(_,key,value)context[key]=value end})
+    setfenv(1,runtimeEnv)
+
+
+-- ============================================================================
+-- PART 1: Yabujin Client (Roblox Rivals) Core Functions & Hooks
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- Function [22]: runWithElevatedThreadIdentity (485 bytes)
+-- Description: Elevates executor thread identity to 8 (with fallback to 7, 6, 3 on 'lacking capability') for privileged Roblox API calls.
+-- Resolved Upvalues: [1] = setthreadidentity, [2] = pcall, [3] = getthreadidentity
+-- ----------------------------------------------------------------------------
+do
+    YabujinDeobfuscated.Required["runWithElevatedThreadIdentity"]={"setthreadidentity","pcall","getthreadidentity"}
+    local setthreadidentity, pcall, getthreadidentity = resolve("setthreadidentity"), resolve("pcall"), resolve("getthreadidentity")
+    YabujinDeobfuscated.runWithElevatedThreadIdentity = function(b, ...)
+        if not setthreadidentity then return pcall(b, ...)
+    end
+    local J
+    pcall(function()
+        J = getthreadidentity and(getthreadidentity())
+    end)
+    pcall(setthreadidentity, 8)
+    local N = table.pack(pcall(b, ...))
+    if not N[1] and type(N[2]) == "string" and(N[2]:find("lacking capability", 1, true)) then
+        local A = {7, 6, 3}
+        for q, q in ipairs(A) do
+            pcall(setthreadidentity, q)
+            N = table.pack(pcall(b, ...))
+            if N[1] then
+                break
+            end
+            if type(N[2]) ~= "string" or not N[2]:find("lacking capability", 1, true) then
+                break
+            end
+        end
+    end
+    if J ~= nil then
+        pcall(setthreadidentity, J)
+    end
+    return table.unpack(N, 1, N.n)
+end
+end
+-- ----------------------------------------------------------------------------
+-- Function [125]: runSafeQueueWorker (205 bytes)
+-- Description: Background coroutine loop that maintains thread identity 8 and executes queued callbacks in _safeQueue via _withId.
+-- Resolved Upvalues: [1] = setthreadidentity, [2] = pcall, [3] = spoofConfig
+-- ----------------------------------------------------------------------------
+do
+    YabujinDeobfuscated.Required["runSafeQueueWorker"]={"setthreadidentity","pcall","spoofConfig"}
+    local setthreadidentity, pcall, spoofConfig = resolve("setthreadidentity"), resolve("pcall"), resolve("spoofConfig")
+    YabujinDeobfuscated.runSafeQueueWorker = function()
+        while not spoofConfig._stopped do
+            if setthreadidentity then
+                pcall(setthreadidentity, 8)
+            end
+            while#spoofConfig._safeQueue > 0 do
+                local b = table.remove(spoofConfig._safeQueue, 1)
+                if b then
+                    spoofConfig._withId(b)
+                end
+            end
+            task.wait()
+        end
+    end
+end
+
+-- ----------------------------------------------------------------------------
+-- Function [55]: getRealUserId (210 bytes)
+-- Description: Returns the real UserId of a Player (checking LocalPlayer and RealUserIdMap before player.UserId).
+-- Resolved Upvalues: [1] = LocalPlayer, [2] = localOriginalUserId, [3] = spoofConfig
+-- ----------------------------------------------------------------------------
+do
+    YabujinDeobfuscated.Required["getRealUserId"]={"LocalPlayer","localOriginalUserId","spoofConfig"}
+    local LocalPlayer, localOriginalUserId, spoofConfig = resolve("LocalPlayer"), resolve("localOriginalUserId"), resolve("spoofConfig")
+    YabujinDeobfuscated.getRealUserId = function(b)
+        if b == LocalPlayer then return localOriginalUserId
+    end
+    local J = spoofConfig.RealUserIdMap
+    if J and J[b] then
+        return J[b]
+    end
+    if typeof(b) == "Instance" and(b:IsA("Player")) then
+        return b.UserId
+    end
+    return 0
+end
+end
+
+-- ----------------------------------------------------------------------------
+-- Function [42]: getOriginalPlayerName (178 bytes)
+-- Description: Returns the unspoofed username of a Player from OtherPlayerOriginals.
+-- Resolved Upvalues: [1] = LocalPlayer, [2] = localOriginalName, [3] = spoofConfig
+-- ----------------------------------------------------------------------------
+do
+    YabujinDeobfuscated.Required["getOriginalPlayerName"]={"LocalPlayer","localOriginalName","spoofConfig"}
+    local LocalPlayer, localOriginalName, spoofConfig = resolve("LocalPlayer"), resolve("localOriginalName"), resolve("spoofConfig")
+    YabujinDeobfuscated.getOriginalPlayerName = function(b)
+        if b == LocalPlayer then return localOriginalName
+    end
+    local J = spoofConfig.OtherPlayerOriginals
+    if J and J[b] and J[b].Name then
+        return J[b].Name
+    end
+    return b.Name
+end
+end
+
+-- ----------------------------------------------------------------------------
+-- Function [108]: getSpoofedPlayerNames (693 bytes)
+-- Description: Returns (spoofedName, spoofedDisplayName) for LocalPlayer, yabujinUsers[userId].spoofer, or AnonymousMode.
+-- Resolved Upvalues: [1] = LocalPlayer, [2] = spoofConfig, [3] = getRealUserId, [4] = getYabujinSpoofField
+-- ----------------------------------------------------------------------------
+do
+    YabujinDeobfuscated.Required["getSpoofedPlayerNames"]={"LocalPlayer","spoofConfig","getRealUserId","getYabujinSpoofField"}
+    local LocalPlayer, spoofConfig, getRealUserId, getYabujinSpoofField = resolve("LocalPlayer"), resolve("spoofConfig"), resolve("getRealUserId"), resolve("getYabujinSpoofField")
+    YabujinDeobfuscated.getSpoofedPlayerNames = function(b)
+        if not b then return nil, nil
+    end
+    if b == LocalPlayer then
+        if not spoofConfig.UsernameSpoof then
+            return nil, nil
+        end
+        local J, N = spoofConfig.SpoofedName, spoofConfig.SpoofedDisplayName
+        local A = J and J ~= "" and J or nil
+        return A, N and N ~= "" and N or A
+    end
+    local J = getRealUserId(b)
+    b = yabujinUsers[J] or yabujinUsers[tostring(J)]
+    if b and b.spoofer and(next(b.spoofer)) then
+        local b = getYabujinSpoofField(J, "Username")
+        if not b or type(b) ~= "table" then
+            return nil, nil
+        end
+        local J = b.name and b.name ~= "" and b.name or nil
+        return J, b.displayName and b.displayName ~= "" and b.displayName or J
+    end
+    if spoofConfig.AnonymousMode then
+        return spoofConfig.AnonName or "Roblox", spoofConfig.AnonDisplayName or "Roblox"
+    end
+    return nil, nil
+end
+end
+
+-- ----------------------------------------------------------------------------
+-- Function [91]: applyLocalPlayerIdentitySpoof (1190 bytes)
+-- Description: Applies spoofed Name, DisplayName, and UserId to LocalPlayer and updates the in-game PlayerLabel UI.
+-- Resolved Upvalues: [1] = spoofConfig, [2] = origPlayerName, [3] = LocalPlayer, [4] = pcall, [5] = origDisplayName, [6] = origUserId
+-- ----------------------------------------------------------------------------
+do
+    YabujinDeobfuscated.Required["applyLocalPlayerIdentitySpoof"]={"spoofConfig","origPlayerName","LocalPlayer","pcall","origDisplayName","origUserId"}
+    local spoofConfig, origPlayerName, LocalPlayer, pcall, origDisplayName, origUserId = resolve("spoofConfig"), resolve("origPlayerName"), resolve("LocalPlayer"), resolve("pcall"), resolve("origDisplayName"), resolve("origUserId")
+    YabujinDeobfuscated.applyLocalPlayerIdentitySpoof = function()
+        local b = nil
+        if spoofConfig.UsernameSpoof then
+            local J = spoofConfig.SpoofedName
+            b = J and J ~= "" and J or origPlayerName
+        else
+            b = origPlayerName
+        end
+        local J = b ~= LocalPlayer.Name
+        if J then
+            pcall(function()
+                local N = spoofConfig._findPlayersFrame and(spoofConfig._findPlayersFrame())
+                if N then
+                    local A = N:FindFirstChild("PlayerLabel" .. LocalPlayer.Name)
+                    if A then
+                        A:Destroy()
+                    end
+                end
+            end)
+        end
+        pcall(function()
+            LocalPlayer.Name = b
+        end)
+        if spoofConfig.UsernameSpoof then
+            local b, N = spoofConfig.SpoofedDisplayName, spoofConfig.SpoofedName
+            if b and b ~= "" then
+                pcall(function()
+                    LocalPlayer.DisplayName = b
+                end)
+            elseif N and N ~= "" then
+                pcall(function()
+                    LocalPlayer.DisplayName = N
+                end)
+            else
+                pcall(function()
+                    LocalPlayer.DisplayName = origDisplayName
+                end)
+            end
+        else
+            pcall(function()
+                LocalPlayer.DisplayName = origDisplayName
+            end)
+        end
+        if not J then
+            pcall(function()
+                local b = spoofConfig._findPlayersFrame and(spoofConfig._findPlayersFrame())
+                if b then
+                    local J = b:FindFirstChild("PlayerLabel" .. LocalPlayer.Name)
+                    if J then
+                        local b = J:FindFirstChild("DisplayNameLabel")
+                        if b then
+                            b.Text = LocalPlayer.DisplayName
+                        end
+                    end
+                end
+            end)
+        end
+        spoofConfig._withId(function()
+            if spoofConfig.AvatarSpoof and spoofConfig.AvatarUserId and spoofConfig.AvatarUserId ~= 0 then LocalPlayer.UserId = spoofConfig.AvatarUserId
+        else
+            LocalPlayer.UserId = origUserId
+        end
+    end)
+end
+end
+
+-- ----------------------------------------------------------------------------
+-- Function [99]: hookGetPlayerByUserId (374 bytes)
+-- Description: Hooks Players:GetPlayerByUserId to resolve spoofed AvatarUserId and RealUserIdMap entries.
+-- Resolved Upvalues: [1] = spoofConfig, [2] = localOriginalUserId, [3] = origGetPlayerByUserId, [4] = localSpoofTargetId
+-- ----------------------------------------------------------------------------
+do
+    YabujinDeobfuscated.Required["hookGetPlayerByUserId"]={"spoofConfig","localOriginalUserId","origGetPlayerByUserId","localSpoofTargetId"}
+    local spoofConfig, localOriginalUserId, origGetPlayerByUserId, localSpoofTargetId = resolve("spoofConfig"), resolve("localOriginalUserId"), resolve("origGetPlayerByUserId"), resolve("localSpoofTargetId")
+    YabujinDeobfuscated.hookGetPlayerByUserId = function(b, J)
+        if spoofConfig.AvatarSpoof and spoofConfig.AvatarUserId then
+        if type(J) == "number" and(J == spoofConfig.AvatarUserId or J == localOriginalUserId) then
+            return origGetPlayerByUserId(b, localSpoofTargetId)
+        end
+    end
+    local N = origGetPlayerByUserId(b, J)
+    if not N and type(J) == "number" and spoofConfig.RealUserIdMap then
+        for A, q in pairs(spoofConfig.RealUserIdMap) do
+            if q == J then
+                local J = origGetPlayerByUserId(b, A)
+                if J then
+                    return J
+                end
+            end
+        end
+    end
+    return N
+end
+end
+
+-- ----------------------------------------------------------------------------
+-- Function [1]: hookPlayerGetAttribute (1146 bytes)
+-- Description: Hooks Player:GetAttribute to spoof Streak, ELO, LeaderboardRank, Level, and PlayerStatus ('Prime'/'Contraband') for yabujinUsers and AnonymousMode.
+-- Resolved Upvalues: [1] = getRealUserId, [2] = getYabujinSpoofField, [3] = spoofConfig, [4] = origGetAttribute
+-- ----------------------------------------------------------------------------
+do
+    YabujinDeobfuscated.Required["hookPlayerGetAttribute"]={"getRealUserId","getYabujinSpoofField","spoofConfig","origGetAttribute"}
+    local getRealUserId, getYabujinSpoofField, spoofConfig, origGetAttribute = resolve("getRealUserId"), resolve("getYabujinSpoofField"), resolve("spoofConfig"), resolve("origGetAttribute")
+    YabujinDeobfuscated.hookPlayerGetAttribute = function(b, J)
+        if typeof(b) == "Instance" and(b:IsA("Player")) then local N = getRealUserId(b)
+        if yabujinUsers[N] and yabujinUsers[N].spoofer then
+            if J == "StatisticDuelsWinStreak" then
+                local A = getYabujinSpoofField(N, "Streak")
+                if A then
+                    return A
+                end
+            elseif J == "DisplayELO" then
+                local A = getYabujinSpoofField(N, "ELO")
+                if A then
+                    return A
+                end
+            elseif J == "DisplayELOLeaderboardRanking" then
+                local A = getYabujinSpoofField(N, "LeaderboardRank")
+                if A then
+                    return A
+                end
+            elseif J == "Level" then
+                local A = getYabujinSpoofField(N, "Level")
+                if A then
+                    return A
+                end
+            elseif J == "PlayerStatus" then
+                local A = getYabujinSpoofField(N, "Pass")
+                if A and type(A) == "number" and A > 1 then
+                    if A == 2 then
+                        return "Prime"
+                    elseif A == 3 then
+                        return "Contraband"
+                    end
+                end
+            end
+        end
+    end
+    if spoofConfig.AnonymousMode then
+        local N = getRealUserId(b)
+        if not(yabujinUsers[N] and yabujinUsers[N].spoofer) then
+            if J == "StatisticDuelsWinStreak" and spoofConfig.AnonStreak then
+                return spoofConfig.AnonStreak
+            end
+            if J == "DisplayELO" and spoofConfig.AnonELO then
+                return spoofConfig.AnonELO
+            end
+            if J == "Level" and spoofConfig.AnonLevel then
+                return spoofConfig.AnonLevel
+            end
+            if J == "DisplayELOLeaderboardRanking" then
+                return 0
+            end
+        end
+    end
+    return origGetAttribute(b, J)
+end
+end
+
+-- ----------------------------------------------------------------------------
+-- Function [8]: hookNametagDisplayName (527 bytes)
+-- Description: Hooks player nametag/chat display name for yabujinUsers, AnonymousMode, and local UsernameSpoof.
+-- Resolved Upvalues: [1] = LocalPlayer, [2] = getRealUserId, [3] = getSpoofedPlayerNames, [4] = spoofConfig, [5] = origNametagFunc
+-- ----------------------------------------------------------------------------
+do
+    YabujinDeobfuscated.Required["hookNametagDisplayName"]={"LocalPlayer","getRealUserId","getSpoofedPlayerNames","spoofConfig","origNametagFunc"}
+    local LocalPlayer, getRealUserId, getSpoofedPlayerNames, spoofConfig, origNametagFunc = resolve("LocalPlayer"), resolve("getRealUserId"), resolve("getSpoofedPlayerNames"), resolve("spoofConfig"), resolve("origNametagFunc")
+    YabujinDeobfuscated.hookNametagDisplayName = function(b, J, N, A)
+        if J and J ~= LocalPlayer then local q = getRealUserId(J)
+        local W = yabujinUsers[q] or yabujinUsers[tostring(q)]
+        if W and W.spoofer and(next(W.spoofer)) then
+            local q, q = getSpoofedPlayerNames(J)
+            N = if q and q ~= "" then q else N
+        elseif spoofConfig.AnonymousMode then
+            return origNametagFunc(b, J, spoofConfig.AnonDisplayName or "Roblox", A)
+        end
+    end
+    return origNametagFunc(b, J, if J == LocalPlayer and spoofConfig.UsernameSpoof then spoofConfig.SpoofedDisplayName ~= "" and spoofConfig.SpoofedDisplayName or(spoofConfig.SpoofedName ~= "" and spoofConfig.SpoofedName or J.DisplayName) else N, A)
+end
+end
+
+-- ----------------------------------------------------------------------------
+-- Function [20]: hookClientDataGet (9874 bytes)
+-- Description: Core Rivals client data interceptor: spoofs Seasons, Ranked ELO, LeaderboardRank, BattlePass, Currencies (Keys, UnlockTokens, EventCurrency, Glory, SkinTickets), CosmeticInventory, WeaponInventory, EquippedCosmetics, EquippedEmotes, Statistics, FavoriteWeapons/Map, WeaponStatistics, DuelHistory, and LoggedELOEvents.
+-- Resolved Upvalues: [1] = spooferActive, [2] = origDataGet, [3] = spoofConfig, [4] = rankedConfig, [5] = cachedSeasonsTable, [6] = cachedOrigSeasons, [7] = cachedSeasonsKey, [8] = equippedCosmeticsOverride, [9] = isCosmeticUnlocked, [10] = weaponUnlockMode, [11] = cachedWeaponInventory, [12] = specificUnlockedWeapons, [13] = ItemDatabase, [14] = favoritedWeaponsMap, [15] = WeaponConfig, [16] = favoritedCosmeticsOverride, [17] = equippedEmotesOverride, [18] = streakSpoofState
+-- ----------------------------------------------------------------------------
+do
+    YabujinDeobfuscated.Required["hookClientDataGet"]={"spooferActive","origDataGet","spoofConfig","rankedConfig","cachedSeasonsTable","cachedOrigSeasons","cachedSeasonsKey","equippedCosmeticsOverride","isCosmeticUnlocked","weaponUnlockMode","cachedWeaponInventory","specificUnlockedWeapons","ItemDatabase","favoritedWeaponsMap","WeaponConfig","favoritedCosmeticsOverride","equippedEmotesOverride","streakSpoofState"}
+    local spooferActive, origDataGet, spoofConfig, rankedConfig, cachedSeasonsTable, cachedOrigSeasons, cachedSeasonsKey, equippedCosmeticsOverride, isCosmeticUnlocked, weaponUnlockMode, cachedWeaponInventory, specificUnlockedWeapons, ItemDatabase, favoritedWeaponsMap, WeaponConfig, favoritedCosmeticsOverride, equippedEmotesOverride, streakSpoofState = resolve("spooferActive"), resolve("origDataGet"), resolve("spoofConfig"), resolve("rankedConfig"), resolve("cachedSeasonsTable"), resolve("cachedOrigSeasons"), resolve("cachedSeasonsKey"), resolve("equippedCosmeticsOverride"), resolve("isCosmeticUnlocked"), resolve("weaponUnlockMode"), resolve("cachedWeaponInventory"), resolve("specificUnlockedWeapons"), resolve("ItemDatabase"), resolve("favoritedWeaponsMap"), resolve("WeaponConfig"), resolve("favoritedCosmeticsOverride"), resolve("equippedEmotesOverride"), resolve("streakSpoofState")
+    YabujinDeobfuscated.hookClientDataGet = function(b, J, ...)
+        if not spooferActive then return origDataGet(b, J, ...)
+    end
+    if spoofConfig.HideBeginnerTasks and J == "BeginnerTasksCompleted" then
+        return math.huge
+    end
+    if J == "Seasons" then
+        local N = rankedConfig.forceRankedFakeElo and spoofConfig._forceRankedSummaryElo ~= nil
+        if not spoofConfig.ELOSpoof and not spoofConfig.PassSpoof and not spoofConfig.PassLevelSpoof and not N then
+            return origDataGet(b, J, ...)
+        end
+        local A = origDataGet(b, J, ...)
+        local q = tostring(spoofConfig.ELOSpoof) .. "|" .. tostring(spoofConfig.SpoofedELO or "") .. "|" .. tostring(spoofConfig.SpoofedLeaderboardRank or "") .. "|" .. tostring(rankedConfig.forceRankedFakeElo) .. "|" .. tostring(spoofConfig._forceRankedSummaryElo or "")
+        if cachedSeasonsTable and cachedOrigSeasons == A and cachedSeasonsKey == q then
+            return cachedSeasonsTable
+        end
+        if A then
+            local W = table.clone(A)
+            for U, L in pairs(W) do
+                local h, B, R = false, if N then spoofConfig._forceRankedSummaryElo else
+                if spoofConfig.ELOSpoof and spoofConfig.SpoofedELO then
+                    spoofConfig.SpoofedELO
+                else
+                    nil
+                    if B and L.RankedPerformances then
+                        R = table.clone(L)
+                        local s = table.clone(L.RankedPerformances)
+                        for d, w in pairs(s) do
+                            local u = table.clone(w)
+                            u.CurrentELO = B
+                            if not N and spoofConfig.SpoofedLeaderboardRank then
+                                u.CurrentLeaderboardRanking = spoofConfig.SpoofedLeaderboardRank
+                                if u.Metadata then
+                                    w = table.clone(u.Metadata)
+                                    w.FinalLeaderboardRank = spoofConfig.SpoofedLeaderboardRank
+                                    u.Metadata = w
+                                end
+                            elseif not N then
+                                u.CurrentLeaderboardRanking = nil
+                            end
+                            if u.HighestELO and u.HighestELO < B then
+                                u.HighestELO = B
+                            end
+                            s[d] = u
+                        end
+                        R.RankedPerformances = s
+                        h = true
+                    else
+                        R = L
+                    end
+                    if(spoofConfig.PassSpoof and spoofConfig.SpoofPassTrack or spoofConfig.PassLevelSpoof and spoofConfig.SpoofedPassLevel) and L.BattlePass then
+                        R = if R == L then(table.clone(L)) else R
+                        B = table.clone(L.BattlePass)
+                        if spoofConfig.PassSpoof and spoofConfig.SpoofPassTrack then
+                            if spoofConfig.SpoofPassTrack == 3 then
+                                B.MaxPassTrackNum = 2
+                                B.SeasonPassBundleOwned = true
+                            else
+                                B.MaxPassTrackNum = spoofConfig.SpoofPassTrack
+                                B.SeasonPassBundleOwned = false
+                            end
+                        end
+                        if spoofConfig.PassLevelSpoof and spoofConfig.SpoofedPassLevel then
+                            B.PassLevel = spoofConfig.SpoofedPassLevel
+                        end
+                        R.BattlePass = B
+                        h = true
+                    end
+                    if h then
+                        W[U] = R
+                    end
+                end
+                cachedSeasonsTable, cachedOrigSeasons, cachedSeasonsKey = W, A, q
+                return W
+            end
+            return A
+        end
+        if J == "EquippedCosmetics" then
+            local N = origDataGet(b, J, ...)
+            if not next(equippedCosmeticsOverride) then
+                return N
+            end
+            local A = N and(table.clone(N)) or{}
+            for N, q in pairs(equippedCosmeticsOverride) do
+                A[N] = A[N] or{}
+                for W, U in pairs(q) do
+                    A[N][W] = U
+                end
+            end
+            return A
+        end
+        if J == "Level" then
+            if spoofConfig.LevelSpoof and spoofConfig.SpoofedLevel then
+                return spoofConfig.SpoofedLevel
+            end
+            return origDataGet(b, J, ...)
+        end
+        if J == "WeaponKeys" then
+            if spoofConfig.KeysSpoof and spoofConfig.SpoofedKeys then
+                return spoofConfig.SpoofedKeys
+            end
+            return origDataGet(b, J, ...)
+        end
+        if J == "UnlockTokens" then
+            if spoofConfig.TokensSpoof and spoofConfig.SpoofedTokens then
+                return spoofConfig.SpoofedTokens
+            end
+            return origDataGet(b, J, ...)
+        end
+        if J == "EventCurrency" then
+            if spoofConfig.EventCurrSpoof and spoofConfig.SpoofedEventCurr then
+                return spoofConfig.SpoofedEventCurr
+            end
+            return origDataGet(b, J, ...)
+        end
+        if J == "Glory" then
+            if spoofConfig.GlorySpoof and spoofConfig.SpoofedGlory then
+                return spoofConfig.SpoofedGlory
+            end
+            return origDataGet(b, J, ...)
+        end
+        if J == "SkinTickets" then
+            if spoofConfig.SkinTicketsSpoof and spoofConfig.SpoofedSkinTickets then
+                return spoofConfig.SpoofedSkinTickets
+            end
+            return origDataGet(b, J, ...)
+        end
+        if J == "StatisticPlaytime" then
+            if spoofConfig.PlaytimeSpoof and spoofConfig.SpoofedPlaytime then
+                return spoofConfig.SpoofedPlaytime
+            end
+            return origDataGet(b, J, ...)
+        end
+        if J == "CosmeticInventory" then
+            if spoofConfig._cachedInvProxy and spoofConfig._cachedInvProxySelf == b then
+                return spoofConfig._cachedInvProxy
+            end
+            local N, A, q = b, 0
+            local W = setmetatable({}, {__index = function(U, L)
+                if not spooferActive then
+                if q then
+                    return rawget(q, L)
+                end
+                return nil
+            end
+            U = tick()
+            if not q or U -A > 2 then
+                q, A = origDataGet(N, "CosmeticInventory"), U
+            end
+            if q and(rawget(q, L)) then
+                return rawget(q, L)
+            end
+            if isCosmeticUnlocked(L) then
+                return true
+            end
+        end
+        })
+        spoofConfig._cachedInvProxy = W
+        spoofConfig._cachedInvProxySelf = b
+        return W
+    end
+    if J == "WeaponInventory" then
+        if weaponUnlockMode == "none" then
+            local N = origDataGet(b, J, ...)
+            if type(spoofConfig._scriptUnlockedWeapons) ~= "table" or not next(spoofConfig._scriptUnlockedWeapons) then
+                return N
+            end
+            local A = {}
+            if N then
+                for q, W in pairs(N) do
+                    if not spoofConfig._scriptUnlockedWeapons[W and W.Name or q] then
+                        A[q] = W
+                    end
+                end
+            end
+            return A
+        end
+        if cachedWeaponInventory then
+            return cachedWeaponInventory
+        end
+        local N = origDataGet(b, J, ...)
+        local A = {}
+        if weaponUnlockMode == "specific" then
+            if N then
+                for q, W in pairs(N) do
+                    if specificUnlockedWeapons[q] then
+                        A[q] = W
+                    end
+                end
+            end
+            for q in pairs(specificUnlockedWeapons) do
+                if not A[q] then
+                    local W = ItemDatabase.Items[q]
+                    if W and W.Class then
+                        A[q] = {Name = q, Owned = true, Class = W.Class, Unlocked = true, Level = 1, XP = 0, IsFavorited = favoritedWeaponsMap[q] or false}
+                    end
+                end
+            end
+        elseif weaponUnlockMode == "unlockable" then
+            if N then
+                for q, W in pairs(N) do
+                    A[q] = W
+                end
+            end
+            for q, W in ipairs(WeaponConfig.OwnableWeapons or{}) do
+                if not A[W] then
+                    q = ItemDatabase.Items[W]
+                    if q and q.Class then
+                        A[W] = {Name = W, Owned = true, Class = q.Class, Unlocked = true, Level = 1, XP = 0, IsFavorited = favoritedWeaponsMap[W] or false}
+                    end
+                end
+            end
+        elseif weaponUnlockMode == "all" then
+            if N then
+                for q, W in pairs(N) do
+                    A[q] = W
+                end
+            end
+            for N, q in pairs(ItemDatabase.Items) do
+                if not A[N] and q and q.Class then
+                    A[N] = {Name = N, Owned = true, Class = q.Class, Unlocked = true, Level = 1, XP = 0, IsFavorited = favoritedWeaponsMap[N] or false}
+                end
+            end
+        end
+        for N, q in pairs(A) do
+            if favoritedWeaponsMap[N] ~= nil then
+                q.IsFavorited = favoritedWeaponsMap[N]
+            end
+        end
+        cachedWeaponInventory = A
+        return A
+    end
+    if J == "FavoritedCosmetics" then
+        local N = origDataGet(b, J, ...)
+        if not next(favoritedCosmeticsOverride) then
+            return N
+        end
+        local A, q = N and(table.clone(N)) or{}, origDataGet(b, "CosmeticInventory")
+        for N, W in pairs(favoritedCosmeticsOverride) do
+            for U, L in pairs(W) do
+                if L and(isCosmeticUnlocked(U) or q and(rawget(q, U))) then
+                    A[N] = A[N] or{}
+                    A[N][U] = L
+                end
+            end
+        end
+        return A
+    end
+    if J == "EquippedEmotes" then
+        if not next(equippedEmotesOverride) then
+            return origDataGet(b, J, ...)
+        end
+        local N = origDataGet(b, J, ...)
+        local A = N and(table.clone(N)) or{}
+        for N, q in pairs(equippedEmotesOverride) do
+            if q and q.Name and q.Name ~= "" then
+                A[N] = q
+            end
+        end
+        return A
+    end
+    if J == "RankedELO" or J == "RankedCurrentELO" or J == "ELO" then
+        if spoofConfig.ELOSpoof and spoofConfig.SpoofedELO then
+            return spoofConfig.SpoofedELO
+        end
+        return origDataGet(b, J, ...)
+    end
+    if J == "Statistics" then
+        if not spoofConfig.StatsSpoof or not spoofConfig.SpoofedStats then
+            return origDataGet(b, J, ...)
+        end
+        local N = origDataGet(b, J, ...)
+        if not N then
+            return N
+        end
+        local A, q = table.clone(N), spoofConfig.SpoofedStats
+        if q.casualWins then
+            A.CasualWins = q.casualWins
+        end
+        if q.casualLosses then
+            A.CasualLosses = q.casualLosses
+        end
+        if q.rankedWins then
+            A.RankedWins = q.rankedWins
+        end
+        if q.rankedLosses then
+            A.RankedLosses = q.rankedLosses
+        end
+        if q.streak then
+            A.Streak = q.streak
+        end
+        return A
+    end
+    if spoofConfig.StatsSpoof and spoofConfig.SpoofedStats then
+        local N = spoofConfig.SpoofedStats
+        if J == "StatisticDuelsWon" and N.casualWins then
+            return N.casualWins
+        end
+        if J == "StatisticDuelsLost" and N.casualLosses then
+            return N.casualLosses
+        end
+        if J == "StatisticDuelsWinStreak" and streakSpoofState.streakEnabled then
+            local A = streakSpoofState.spoofedStreak or 0
+            if streakSpoofState.streakStackReal then
+                return(origDataGet(b, J, ...) or 0) + A
+            end
+            return A
+        end
+        if J == "StatisticRankedDuelsWon" and N.rankedWins then
+            return N.rankedWins
+        end
+        if J == "StatisticRankedDuelsLost" and N.rankedLosses then
+            return N.rankedLosses
+        end
+        if J == "StatisticDuelsWinPercent" then
+            local A = N.casualWins or(origDataGet(b, "StatisticDuelsWon")) or 0
+            local q = A + (N.casualLosses or(origDataGet(b, "StatisticDuelsLost")) or 0)
+            if q > 0 then
+                return A / q
+            end
+        end
+        if J == "StatisticRankedDuelsWinPercent" then
+            local A = N.rankedWins or(origDataGet(b, "StatisticRankedDuelsWon")) or 0
+            local q = A + (N.rankedLosses or(origDataGet(b, "StatisticRankedDuelsLost")) or 0)
+            if q > 0 then
+                return A / q
+            end
+        end
+        if J == "StatisticDuelsPlayed" then
+            local A, q = N.casualWins or(origDataGet(b, "StatisticDuelsWon")) or 0, N.casualLosses or(origDataGet(b, "StatisticDuelsLost")) or 0
+            if N.casualWins or N.casualLosses then
+                return A + q
+            end
+        end
+        if J == "StatisticRankedDuelsPlayed" then
+            local A, q = N.rankedWins or(origDataGet(b, "StatisticRankedDuelsWon")) or 0, N.rankedLosses or(origDataGet(b, "StatisticRankedDuelsLost")) or 0
+            if N.rankedWins or N.rankedLosses then
+                return A + q
+            end
+        end
+    end
+    if spoofConfig.FavSpoof then
+        if J == "StatisticFavoriteWeaponPrimary" and spoofConfig.SpoofedFavWeapons and spoofConfig.SpoofedFavWeapons.Primary then
+            return spoofConfig.SpoofedFavWeapons.Primary
+        end
+        if J == "StatisticFavoriteWeaponSecondary" and spoofConfig.SpoofedFavWeapons and spoofConfig.SpoofedFavWeapons.Secondary then
+            return spoofConfig.SpoofedFavWeapons.Secondary
+        end
+        if J == "StatisticFavoriteWeaponMelee" and spoofConfig.SpoofedFavWeapons and spoofConfig.SpoofedFavWeapons.Melee then
+            return spoofConfig.SpoofedFavWeapons.Melee
+        end
+        if J == "StatisticFavoriteWeaponUtility" and spoofConfig.SpoofedFavWeapons and spoofConfig.SpoofedFavWeapons.Utility then
+            return spoofConfig.SpoofedFavWeapons.Utility
+        end
+        if J == "StatisticFavoriteWeapon" and spoofConfig.SpoofedFavWeapons then
+            local N = spoofConfig.SpoofedFavWeapons.Primary or spoofConfig.SpoofedFavWeapons.Secondary or spoofConfig.SpoofedFavWeapons.Melee or spoofConfig.SpoofedFavWeapons.Utility
+            if N then
+                return N
+            end
+        end
+        if J == "StatisticFavoriteMap" and spoofConfig.SpoofedFavMap then
+            return spoofConfig.SpoofedFavMap
+        end
+    end
+    if J == "WeaponStatistics" then
+        local N, A = origDataGet(b, J, ...), spoofConfig.ContractSpoof
+        if A and A.enabled and A.perWeapon then
+            local q = N and(table.clone(N)) or{}
+            for W, U in pairs(A.perWeapon) do
+                if U and(U.kills or U.playtime) then
+                    local L = q[W] and(table.clone(q[W])) or{}
+                    if A.stackReal then
+                        if U.kills then
+                            L.StatisticEliminations = (L.StatisticEliminations or 0) + U.kills
+                        end
+                        if U.playtime then
+                            L.StatisticPlaytime = (L.StatisticPlaytime or 0) + U.playtime
+                        end
+                    else
+                        if U.kills then
+                            L.StatisticEliminations = U.kills
+                        end
+                        if U.playtime then
+                            L.StatisticPlaytime = U.playtime
+                        end
+                    end
+                    q[W] = L
+                end
+            end
+            return q
+        end
+        return N
+    end
+    if J == "DuelHistory" then
+        local N = origDataGet(b, J, ...)
+        if not spoofConfig.DuelHistorySpoof or not spoofConfig.SpoofedDuelHistory or#spoofConfig.SpoofedDuelHistory == 0 then
+            return N
+        end
+        local A = {}
+        for q, q in ipairs(spoofConfig.SpoofedDuelHistory) do
+            A[#A + 1] = q
+        end
+        if spoofConfig.DuelHistoryReplace then
+            return A
+        end
+        if N and type(N) == "table" then
+            for q, q in ipairs(N) do
+                A[#A + 1] = q
+            end
+        end
+        return A
+    end
+    if J == "LoggedELOEvents" then
+        local N = origDataGet(b, J, ...)
+        if not spoofConfig.DuelHistorySpoof or not spoofConfig.SpoofedELOEvents or#spoofConfig.SpoofedELOEvents == 0 then
+            return N
+        end
+        local A = {}
+        for q, q in ipairs(spoofConfig.SpoofedELOEvents) do
+            A[#A + 1] = q
+        end
+        if not spoofConfig.DuelHistoryReplace and N and type(N) == "table" then
+            for q, q in ipairs(N) do
+                A[#A + 1] = q
+            end
+        end
+        return A
+    end
+    return origDataGet(b, J, ...)
+end
+end
+
+-- ----------------------------------------------------------------------------
+-- Function [126]: isCosmeticUnlockedCached (320 bytes)
+-- Description: Checks whether a cosmetic item is unlocked across 5 cosmetic tables with a cfg.cacheTtl timestamp cache.
+-- Resolved Upvalues: [1] = forceUnlockAll, [2] = unlockerEnabled, [3] = ownershipCache, [4] = timestampCache, [5] = unlockedTable1, [6] = unlockedTable2, [7] = unlockedTable3, [8] = unlockedTable4, [9] = unlockedTable5
+-- ----------------------------------------------------------------------------
+do
+    YabujinDeobfuscated.Required["isCosmeticUnlockedCached"]={"forceUnlockAll","unlockerEnabled","ownershipCache","timestampCache","unlockedTable1","unlockedTable2","unlockedTable3","unlockedTable4","unlockedTable5"}
+    local forceUnlockAll, unlockerEnabled, ownershipCache, timestampCache, unlockedTable1, unlockedTable2, unlockedTable3, unlockedTable4, unlockedTable5 = resolve("forceUnlockAll"), resolve("unlockerEnabled"), resolve("ownershipCache"), resolve("timestampCache"), resolve("unlockedTable1"), resolve("unlockedTable2"), resolve("unlockedTable3"), resolve("unlockedTable4"), resolve("unlockedTable5")
+    YabujinDeobfuscated.isCosmeticUnlockedCached = function(b)
+        if not forceUnlockAll and not unlockerEnabled then return false
+    end
+    local J = tick()
+    local N = ownershipCache[b]
+    if N ~= nil and J -(timestampCache[b] or 0) < cfg.cacheTtl then
+        return N
+    end
+    N = unlockedTable1[b] or unlockedTable2[b] or unlockedTable3[b] or unlockedTable4[b] or unlockedTable5[b]
+    ownershipCache[b] = N
+    timestampCache[b] = J
+    return N
+end
+end
+
+-- ----------------------------------------------------------------------------
+-- Function [18]: hookOwnsWeaponCosmetic (542 bytes)
+-- Description: Hooks weapon cosmetic ownership check (ownsWep) to unlock skins/cosmetics.
