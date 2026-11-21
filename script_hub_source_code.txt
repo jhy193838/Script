@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>스크립트 허브 (Script Hub)</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;-webkit-tap-highlight-color:transparent}
+body{background:#f1f5f9;color:#1e293b;min-height:100vh;display:flex;flex-direction:column}
+header{background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:40}
+.header-container{max-width:1280px;margin:auto;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand-section{display:flex;align-items:center;gap:10px}
+.brand-logo{width:36px;height:36px;background:#0f172a;color:#34d399;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:20px}
+.brand-title{font-size:16px;font-weight:800;color:#0f172a}
+.brand-sub{font-size:11px;color:#64748b}
+.header-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.main-only-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.main-only-actions.hidden{display:none}
+.server-count{font-size:11px;font-weight:800;color:#047857;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:999px;padding:7px 10px;white-space:nowrap}
+.page-tabs{display:flex;gap:8px;overflow:auto;padding:2px 0 8px;scrollbar-width:none}.page-tabs::-webkit-scrollbar{display:none}
+.tab{padding:10px 14px;border-radius:999px;background:#e2e8f0;color:#475569;font-size:12px;font-weight:800;white-space:nowrap}.tab.active{background:#0f172a;color:#fff}
+.swipe-viewport{overflow:hidden;width:100%;touch-action:pan-y}.swipe-track{display:flex;width:400%;transition:transform .28s ease;align-items:flex-start}.page{width:25%;min-width:0;padding:0 1px}.page-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}.page-heading h2{font-size:17px}.page-desc{font-size:11px;color:#64748b;margin-top:4px}.upload-panel{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap}.upload-panel input,.upload-panel textarea{border:1px solid #cbd5e1;border-radius:8px;padding:9px;font-size:12px;min-width:0;flex:1}.upload-panel textarea{flex-basis:100%;height:90px}.public-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:9px}.public-card h3{font-size:14px}.public-card pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#0f172a;color:#a7f3d0;padding:12px;border-radius:9px;font:12px/1.5 monospace;max-height:220px;overflow:auto}.public-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}.public-meta{font-size:10px;color:#94a3b8}.page-actions{display:flex;gap:6px;flex-wrap:wrap}.page-actions button{padding:7px 10px;border-radius:8px;font-size:11px;font-weight:700;background:#e2e8f0;color:#334155}
+button{cursor:pointer;border:0}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 12px;border-radius:10px;font-size:12px;font-weight:700;white-space:nowrap}
+.dark-btn{background:#0f172a;color:white}.green-btn{background:#059669;color:white}.light-btn{background:#e2e8f0;color:#334155}
+.search-box{width:180px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px;font-size:12px;outline:none}
+main{max-width:1280px;width:100%;margin:0 auto;padding:16px;flex:1;display:flex;flex-direction:column;gap:16px}
+.notice{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:#475569}
+.board-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.card{border-radius:16px;padding:14px;border:1px solid #e2e8f0;box-shadow:0 1px 3px #0000000d;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card.dark{background:#0f172a;border-color:#1e293b;color:#34d399}.card.dark .card-title{color:#f8fafc}.card.dark textarea{color:#34d399}.card.dark .footer{border-color:#1e293b;color:#64748b}
+.card.blue{background:#f0f9ff;border-color:#bae6fd;color:#0369a1}.card.blue .card-title{color:#0c4a6e}
+.card.green{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.card.green .card-title{color:#064e3b}
+.card.purple{background:#faf5ff;border-color:#e9d5ff;color:#6b21a8}.card.purple .card-title{color:#581c87}
+.card.pink{background:#fff1f2;border-color:#fecdd3;color:#be123c}.card.pink .card-title{color:#881337}
+.card.yellow{background:#fffbeb;border-color:#fde68a;color:#b45309}.card.yellow .card-title{color:#78350f}
+.card-header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:8px;border-bottom:1px solid #00000010}
+.card.dark .card-header{border-color:#1e293b}
+.card-title{width:100%;min-width:0;background:transparent;border:0;font-size:13px;font-weight:700;outline:none}
+.controls{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.copy{background:#0f172a;color:white;padding:5px 8px;border-radius:6px;font-size:11px;font-weight:600}
+.icon-btn{width:27px;height:27px;border-radius:6px;border:1px solid #0000001a;background:white;font-size:12px}
+.palette{display:none;position:absolute;right:0;top:30px;background:white;padding:7px;border-radius:9px;box-shadow:0 8px 18px #0002;z-index:5;gap:5px}
+.color-wrap{position:relative}.color-wrap:focus-within .palette,.color-wrap:hover .palette{display:flex}
+.dot{width:17px;height:17px;border-radius:50%;border:0}
+textarea{width:100%;height:150px;background:transparent;border:0;resize:vertical;outline:none;font-family:monospace;font-size:12px;line-height:1.5}
+.footer{padding-top:6px;border-top:1px solid #00000010;display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;font-family:monospace}
+.empty{padding:40px 15px;text-align:center;color:#64748b;background:#fff;border:1px dashed #cbd5e1;border-radius:14px;grid-column:1/-1}
+#toast{position:fixed;bottom:24px;right:24px;background:#0f172a;color:white;padding:12px 18px;border-radius:12px;font-size:12px;opacity:0;transform:translateY(20px);transition:.2s;pointer-events:none;z-index:100}
+#toast.show{opacity:1;transform:translateY(0)}
+#file-input{display:none}
+@media(max-width:520px){.header-container{align-items:flex-start}.header-actions{width:100%}.search-box{flex:1;min-width:130px}.btn{padding:8px 9px}}
+
+/* 채팅 페이지: 추천 스크립트 다음 탭 */
+.chat-launcher{display:none}
+.chat-panel{width:100%;height: min(620px,72vh);min-height:420px;background:#fff;border:1px solid #cbd5e1;border-radius:18px;display:flex;flex-direction:column;overflow:hidden}
+.chat-head{background:#0f172a;color:#fff;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;gap:8px}.chat-head strong{font-size:14px}.chat-head small{display:block;color:#cbd5e1;font-size:10px;margin-top:3px}.chat-close{display:none}
+.chat-local-note{padding:8px 12px;background:#fffbeb;color:#92400e;font-size:10px;line-height:1.45;border-bottom:1px solid #fde68a}
+.chat-messages{flex:1;min-height:180px;overflow-y:auto;padding:12px;background:#f8fafc;display:flex;flex-direction:column;gap:9px}.chat-empty{text-align:center;color:#94a3b8;font-size:12px;margin:auto;line-height:1.7}
+.chat-message{max-width:85%;align-self:flex-end;background:#dcfce7;color:#14532d;padding:9px 11px;border-radius:13px 13px 3px 13px;overflow-wrap:anywhere}.chat-message .chat-meta{font-size:9px;color:#64748b;margin-bottom:4px}.chat-message .chat-text{font-size:12px;white-space:pre-wrap;line-height:1.5}
+.chat-compose{padding:10px;border-top:1px solid #e2e8f0;display:flex;gap:7px;background:#fff}.chat-compose textarea{height:42px;min-height:42px;max-height:100px;resize:none;border:1px solid #cbd5e1;border-radius:10px;padding:9px;font:12px/1.4 inherit;flex:1;outline:none}.chat-send{background:#059669;color:#fff;border:0;border-radius:10px;padding:0 14px;font-size:12px;font-weight:800}
+.chat-tools{display:flex;justify-content:flex-end;padding:0 10px 8px;background:#fff}.chat-clear{font-size:10px;color:#64748b;background:transparent;border:0;text-decoration:underline}
+@media(max-width:520px){.chat-panel{height: min(600px,70vh);min-height:390px}}
+
+</style>
+</head>
+<body>
+<header><div class="header-container">
+  <div class="brand-section"><div class="brand-logo">⌘</div><div><div class="brand-title">스크립트 허브</div><div class="brand-sub">모두 함께 쓰는 스크립트 허브</div></div></div>
+  <div class="header-actions">
+    <span class="server-count" id="server-count">● 접속 인원: 로컬 모드</span>
+    <input id="search-input" class="search-box" type="search" placeholder="스크립트 검색...">
+
+  </div>
+</div></header>
+<main>
+  <div class="notice"><span>🟢 로그인 없이 이용할 수 있습니다. 현재 버전은 이 기기의 브라우저에 저장됩니다.</span><span id="board-count">총 0개 스크립트</span></div>
+  <nav class="page-tabs" aria-label="스크립트 메뉴"><button class="tab active" data-page="0">전체 스크립트</button><button class="tab" data-page="1">자작 스크립트</button><button class="tab" data-page="2">추천 스크립트</button><button class="tab" data-page="3">💬 채팅</button></nav>
+  <div class="swipe-viewport" id="swipe-viewport"><div class="swipe-track" id="swipe-track">
+    <section class="page"><div class="page-heading"><div><h2>전체 스크립트</h2><p class="page-desc">제목과 코드를 입력하거나 파일로 등록하세요. 추가/삭제 시 비밀번호 확인</p></div></div><div class="upload-panel"><input id="main-title" placeholder="스크립트 제목"><textarea id="main-code" placeholder="스크립트 코드 붙여넣기"></textarea><button class="btn green-btn" id="main-add">＋ 새 스크립트 올리기</button><button class="btn light-btn" id="main-file-btn">↑ 소스 파일 올리기</button><input type="file" id="main-file" multiple hidden></div><div id="board-grid" class="board-grid"></div></section>
+    <section class="page"><div class="page-heading"><div><h2>자작 스크립트</h2><p class="page-desc">비밀번호 없이 자유롭게 등록할 수 있어요.</p></div></div><div class="upload-panel"><input id="mine-title" placeholder="스크립트 제목"><textarea id="mine-code" placeholder="스크립트 코드 붙여넣기"></textarea><button class="btn green-btn" id="mine-add">＋ 자작 스크립트 올리기</button><button class="btn light-btn" id="mine-file-btn">↑ 파일로 올리기</button><input type="file" id="mine-file" multiple hidden></div><div class="public-grid" id="mine-list"></div></section>
+    <section class="page"><div class="page-heading"><div><h2>추천 스크립트</h2><p class="page-desc">추천하고 싶은 코드를 비밀번호 없이 등록하세요.</p></div></div><div class="upload-panel"><input id="rec-title" placeholder="추천 스크립트 제목"><textarea id="rec-code" placeholder="추천할 스크립트 코드"></textarea><button class="btn green-btn" id="rec-add">＋ 추천 스크립트 등록</button><button class="btn light-btn" id="rec-file-btn">↑ 파일로 등록</button><input type="file" id="rec-file" multiple hidden></div><div class="public-grid" id="rec-list"></div></section>
+    <section class="page"><div class="page-heading"><div><h2>💬 스크립트 허브 채팅</h2><p class="page-desc">추천 스크립트 다음 페이지에서 좌우로 밀어 채팅을 이용하세요.</p></div></div>
+      <aside id="chat-panel" class="chat-panel" aria-label="채팅방">
+        <div class="chat-head"><div><strong>공용 채팅방 화면</strong><small>메시지 입력 및 기록 확인</small></div></div>
+        <div class="chat-local-note">현재는 로컬 모드입니다. 이 기기에서만 메시지가 저장되며, 모든 접속자와 실시간 공유하려면 공용 서버 연결이 추가로 필요합니다.</div>
+        <div id="chat-messages" class="chat-messages" aria-live="polite"><div class="chat-empty">아직 메시지가 없습니다.<br>첫 메시지를 남겨보세요.</div></div>
+        <div class="chat-compose"><textarea id="chat-input" maxlength="1000" rows="1" placeholder="메시지를 입력하세요..."></textarea><button id="chat-send" class="chat-send" type="button">전송</button></div>
+        <div class="chat-tools"><button id="chat-clear" class="chat-clear" type="button">내 채팅 기록 지우기</button></div>
+      </aside>
+    </section>
+  </div></div>
+</main>
+
+<div id="toast">저장되었습니다.</div>
+<script>
+(()=>{
+const KEY='script_hub_boards_v7';
+const ACTION_PASSWORD='Koreajhy';
+function authorizeAction(){const entered=prompt('비밀번호를 입력하세요.');if(entered===null)return false;if(entered!==ACTION_PASSWORD){alert('비밀번호가 올바르지 않습니다.');return false;}return true;}
+const defaults=[];
+let boards;
+try{const saved=localStorage.getItem(KEY);boards=saved?JSON.parse(saved):structuredClone(defaults);if(!Array.isArray(boards))boards=structuredClone(defaults)}catch(e){boards=structuredClone(defaults)}
+const $=id=>document.getElementById(id);
+function save(){try{localStorage.setItem(KEY,JSON.stringify(boards))}catch(e){toast('저장 공간을 사용할 수 없습니다.')} $('board-count').firstChild.textContent=`총 ${boards.length}개 스크립트 `}
+function toast(msg){$('toast').textContent=msg;$('toast').classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').classList.remove('show'),1800)}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+function render(query=''){
+const grid=$('board-grid');grid.innerHTML='';
+const q=query.trim().toLowerCase();
+const found=boards.filter(b=>(b.title||'').toLowerCase().includes(q)||(b.content||'').toLowerCase().includes(q));
+if(!found.length){grid.innerHTML='<div class="empty">검색 결과가 없습니다.<br><br>새 스크립트를 추가해 보세요.</div>'}
+found.forEach(board=>{
+const card=document.createElement('section');card.className=`card ${board.color||'dark'}`;
+card.innerHTML=`<div class="card-header"><input class="card-title" aria-label="스크립트 제목" value="${esc(board.title)}" placeholder="스크립트 제목..."><div class="controls"><button class="copy">복사</button><div class="color-wrap"><button class="icon-btn" aria-label="색상 변경">🎨</button><div class="palette">
+<button class="dot" data-color="dark" style="background:#0f172a"></button><button class="dot" data-color="blue" style="background:#38bdf8"></button><button class="dot" data-color="green" style="background:#34d399"></button><button class="dot" data-color="purple" style="background:#c084fc"></button><button class="dot" data-color="pink" style="background:#fb7185"></button><button class="dot" data-color="yellow" style="background:#fbbf24"></button></div></div><button class="icon-btn delete" aria-label="삭제" style="color:#e11d48">✕</button></div></div><textarea placeholder="스크립트 코드를 입력하세요...">${esc(board.content)}</textarea><div class="footer"><span>코드 보드</span><span>실시간 저장</span></div>`;
+const title=card.querySelector('.card-title'),area=card.querySelector('textarea');
+let timer;const update=()=>{clearTimeout(timer);timer=setTimeout(()=>{board.title=title.value;board.content=area.value;save()},250)};
+title.addEventListener('input',update);area.addEventListener('input',update);
+card.querySelector('.copy').onclick=async()=>{try{await navigator.clipboard.writeText(area.value);toast('클립보드에 복사되었습니다.')}catch(e){area.select();try{document.execCommand('copy');toast('클립보드에 복사되었습니다.')}catch(_){toast('복사에 실패했습니다.')}}};
+card.querySelectorAll('.dot').forEach(btn=>btn.onclick=()=>{board.color=btn.dataset.color;save();render($('search-input').value)});
+card.querySelector('.delete').onclick=()=>{if(!authorizeAction())return;if(confirm('이 스크립트를 삭제할까요?')){boards=boards.filter(b=>b.id!==board.id);save();render($('search-input').value);toast('스크립트가 삭제되었습니다.')}};
+grid.appendChild(card);
+});
+$('board-count').firstChild.textContent=`총 ${boards.length}개 스크립트 `;
+}
+function add(title='',content=''){const colors=['dark','blue','green','purple','pink','yellow'];const b={id:'b_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),title:title||'⚡ 새 스크립트',content,color:colors[Math.floor(Math.random()*colors.length)]};boards.unshift(b);save();$('search-input').value='';render();toast('새 스크립트 보드가 생성되었습니다.');setTimeout(()=>{const first=$('board-grid').firstElementChild;if(first){const input=first.querySelector('.card-title');input.focus();if(!title)input.select()}},30)}
+$('main-add').onclick=()=>{const title=$('main-title').value.trim(),content=$('main-code').value;if(!title||!content.trim()){toast('제목과 코드를 모두 입력해 주세요.');return;}if(authorizeAction()){add(title,content);$('main-title').value='';$('main-code').value='';}};
+$('search-input').oninput=e=>render(e.target.value);
+$('main-file-btn').onclick=()=>{if(authorizeAction())$('main-file').click();};
+$('main-file').onchange=e=>{[...e.target.files].forEach(file=>{const reader=new FileReader();reader.onload=ev=>add(file.name,String(ev.target.result??''));reader.readAsText(file,'UTF-8')});e.target.value=''};
+let dragCount=0;
+window.addEventListener('dragover',e=>e.preventDefault());
+window.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer?.files?.length&&authorizeAction())[...e.dataTransfer.files].forEach(file=>{const reader=new FileReader();reader.onload=ev=>add(file.name,String(ev.target.result??''));reader.readAsText(file,'UTF-8')})});
+const MINE_KEY='script_hub_my_creations_v1',REC_KEY='script_hub_recommendations_v1';
+let mine=JSON.parse(localStorage.getItem(MINE_KEY)||'[]'),recommendations=JSON.parse(localStorage.getItem(REC_KEY)||'[]');
+function savePublic(){localStorage.setItem(MINE_KEY,JSON.stringify(mine));localStorage.setItem(REC_KEY,JSON.stringify(recommendations));}
+function publicCard(item,kind){const el=document.createElement('article');el.className='public-card';el.innerHTML=`<h3>${esc(item.title)}</h3><div class="public-meta">${kind==='mine'?'자작 스크립트':'추천 스크립트'} · ${esc(item.date||'방금 등록')}</div><pre>${esc(item.content)}</pre><div class="page-actions"><button class="copy-public">코드 복사</button><button class="delete-public">삭제</button></div>`;el.querySelector('.copy-public').onclick=async()=>{try{await navigator.clipboard.writeText(item.content);toast('코드를 복사했습니다.')}catch(e){toast('복사할 수 없습니다.')}};el.querySelector('.delete-public').onclick=()=>{if(confirm('이 항목을 삭제할까요?')){if(kind==='mine')mine=mine.filter(x=>x.id!==item.id);else recommendations=recommendations.filter(x=>x.id!==item.id);savePublic();renderPublic();}};return el;}
+function renderPublic(){const a=$('mine-list'),b=$('rec-list');a.innerHTML='';b.innerHTML='';mine.forEach(x=>a.appendChild(publicCard(x,'mine')));recommendations.forEach(x=>b.appendChild(publicCard(x,'rec')));if(!mine.length)a.innerHTML='<div class="empty">아직 올린 자작 스크립트가 없습니다.</div>';if(!recommendations.length)b.innerHTML='<div class="empty">아직 등록된 추천 스크립트가 없습니다.</div>';}
+function uploadPublic(kind,title,content){if(!title.trim()||!content.trim()){toast('제목과 코드를 모두 입력해 주세요.');return;}const item={id:'p_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),title:title.trim(),content,date:new Date().toLocaleString('ko-KR')};if(kind==='mine')mine.unshift(item);else recommendations.unshift(item);savePublic();renderPublic();toast('비밀번호 없이 등록했습니다.');}
+$('mine-add').onclick=()=>{uploadPublic('mine',$('mine-title').value,$('mine-code').value);$('mine-title').value='';$('mine-code').value='';};
+$('rec-add').onclick=()=>{uploadPublic('rec',$('rec-title').value,$('rec-code').value);$('rec-title').value='';$('rec-code').value='';};
+function bindPublicFile(inputId,kind){$(inputId).onchange=e=>{[...e.target.files].forEach(file=>{const reader=new FileReader();reader.onload=ev=>uploadPublic(kind,file.name,String(ev.target.result??''));reader.readAsText(file,'UTF-8')});e.target.value='';};}
+$('mine-file-btn').onclick=()=>$('mine-file').click();$('rec-file-btn').onclick=()=>$('rec-file').click();bindPublicFile('mine-file','mine');bindPublicFile('rec-file','rec');
+
+// 채팅은 서버 없이 이 브라우저의 localStorage에만 저장됩니다.
+const CHAT_KEY='script_hub_local_chat_v1';
+let chatMessages=[];
+try{const stored=JSON.parse(localStorage.getItem(CHAT_KEY)||'[]');if(Array.isArray(stored))chatMessages=stored;}catch(e){chatMessages=[];}
+function saveChat(){try{localStorage.setItem(CHAT_KEY,JSON.stringify(chatMessages));}catch(e){toast('채팅 저장 공간이 부족합니다.');}}
+function renderChat(){const box=$('chat-messages');box.innerHTML='';if(!chatMessages.length){box.innerHTML='<div class="chat-empty">아직 메시지가 없습니다.<br>첫 메시지를 남겨보세요.</div>';return;}chatMessages.forEach(m=>{const item=document.createElement('div');item.className='chat-message';const meta=document.createElement('div');meta.className='chat-meta';meta.textContent='나 · '+m.time;const body=document.createElement('div');body.className='chat-text';body.textContent=m.text;item.append(meta,body);box.appendChild(item);});box.scrollTop=box.scrollHeight;}
+function sendChat(){const input=$('chat-input'),value=input.value.trim();if(!value)return;chatMessages.push({text:value,time:new Date().toLocaleString('ko-KR',{hour:'2-digit',minute:'2-digit'})});if(chatMessages.length>300)chatMessages=chatMessages.slice(-300);saveChat();renderChat();input.value='';input.focus();}
+$('chat-send').onclick=sendChat;
+$('chat-input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}});
+$('chat-clear').onclick=()=>{if(!chatMessages.length)return;if(confirm('이 브라우저에 저장된 채팅 기록을 모두 지울까요?')){chatMessages=[];saveChat();renderChat();}};
+renderChat();
+
+let currentPage=0;function goPage(n){currentPage=Math.max(0,Math.min(3,n));$('swipe-track').style.transform=`translateX(-${currentPage*25}%)`;$('swipe-track').style.width='400%';document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===currentPage));}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>goPage(Number(t.dataset.page)));
+let startX=0,startY=0;$('swipe-viewport').addEventListener('touchstart',e=>{startX=e.touches[0].clientX;startY=e.touches[0].clientY},{passive:true});$('swipe-viewport').addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-startX,dy=e.changedTouches[0].clientY-startY;if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.2)goPage(currentPage+(dx<0?1:-1));},{passive:true});
+$('server-count').title='정적 HTML은 실제 서버 접속자 수를 집계하지 않습니다.';
+renderPublic();render();
+})();
+</script>
+</body>
+</html>
