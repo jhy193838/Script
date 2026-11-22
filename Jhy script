@@ -1,0 +1,450 @@
+-- Language: Luau | Source: Halmuvalk_Deobf Combined Cycle | Runtime: Roblox Luau VM
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+
+local _0l1lOIIII0 = true
+local ragebotEnabled = false
+local voidspamEnabled = false
+local _8080x566 = 50000000
+local VOID_HOLD_SECONDS = 0.25
+local ABOVE_HOLD_SECONDS = 0.10
+local FOLLOW_HEIGHT_OFFSET = 3
+
+local cycleMode = "VOID"
+local cycleTimer = 0
+local a73b35c96 = nil
+local a39b72c33 = nil
+local L389_46 = nil
+local L273_20 = nil
+local _10O0lO = nil
+local v71190 = function(on) end
+
+local function is_teammate(player)
+    if not _0l1lOIIII0 then return false end
+    local _357_939 = LocalPlayer:GetAttribute("TeamID")
+    local L880_33 = player:GetAttribute("TeamID")
+    if _357_939 == nil or L880_33 == nil then return false end
+    return L880_33 == _357_939
+end
+
+local function get_character(playerOrChar)
+    local char = playerOrChar
+    if typeof(playerOrChar) == "Instance" and playerOrChar:IsA("Player") then
+        char = playerOrChar.Character
+    end
+    if not char then return true end
+    if char:FindFirstChildOfClass("ForceField") then return true end
+    local targetHRP = char:FindFirstChild("HumanoidRootPart")
+    if targetHRP and targetHRP:FindFirstChild("Attachment") then return true end
+    local _IlO1IIIIOl1I = char:GetAttribute("Immune") or char:GetAttribute("Invincible") or char:GetAttribute("IsImmune")
+    if _IlO1IIIIOl1I == true then return true end
+    local targetHum = char:FindFirstChildOfClass("Humanoid")
+    if targetHum then
+        local _7665x159 = targetHum:GetAttribute("Immune") or targetHum:GetAttribute("Invincible")
+        if _7665x159 == true then return true end
+    end
+    return false
+end
+
+local function get_player_from_part(player)
+    local char = player and player.Character
+    if not char then return false end
+
+    local _8898x144 = {"Reflecting", "IsReflecting", "BulletReflect", "Reflect", "Deflecting", "Parrying"}
+    for _, a in ipairs(_8898x144) do
+        local _01O001l00 = char:GetAttribute(a)
+        if _01O001l00 == true or _01O001l00 == 1 or _01O001l00 == "true" then return true end
+        local targetHum = char:FindFirstChildOfClass("Humanoid")
+        if targetHum then
+            local a33b54c34 = targetHum:GetAttribute(a)
+            if a33b54c34 == true or a33b54c34 == 1 then return true end
+        end
+    end
+
+    local __bvndpA = false
+    local _101l1O011lIl = char:FindFirstChildOfClass("Tool")
+    if _101l1O011lIl and string.find(string.lower(_101l1O011lIl.Name), "katana", 1, true) then
+        __bvndpA = true
+    end
+    for _, ch in ipairs(char:GetChildren()) do
+        local v16595 = string.lower(ch.Name)
+        if string.find(v16595, "katana", 1, true) then
+            __bvndpA = true
+        end
+        if string.find(v16595, "reflect", 1, true) or string.find(v16595, "deflect", 1, true) then
+            return true
+        end
+    end
+
+    local targetHum = char:FindFirstChildOfClass("Humanoid")
+    if targetHum then
+        local fcOk, _8291x172 = pcall(function() return targetHum:GetPlayingAnimationTracks() end)
+        if fcOk and _8291x172 then
+            for _, _10IllO11 in ipairs(_8291x172) do
+                local tempVar11 = string.lower(tostring(_10IllO11.Name or ""))
+                local _8946x586 = ""
+                pcall(function()
+                    if _10IllO11.Animation then _8946x586 = tostring(_10IllO11.Animation.AnimationId or "") end
+                end)
+                local a20b26c30 = tempVar11 .. " " .. string.lower(_8946x586)
+                if string.find(a20b26c30, "reflect", 1, true) or string.find(a20b26c30, "deflect", 1, true)
+                    or string.find(a20b26c30, "parry", 1, true) or string.find(a20b26c30, "block", 1, true) then
+                    if __bvndpA or string.find(a20b26c30, "katana", 1, true) then
+                        return true
+                    end
+                    if string.find(a20b26c30, "reflect", 1, true) or string.find(a20b26c30, "deflect", 1, true) then
+                        return true
+                    end
+                end
+            end
+        end
+    end
+
+    return false
+end
+
+local function get_character_root(char)
+    if not char then return nil end
+    return char:FindFirstChild("HitboxHead")
+        or char:FindFirstChild("HitboxHeadSmall")
+        or char:FindFirstChild("Head")
+end
+
+local function has_ammo_or_ready()
+    local ready = true
+    pcall(function()
+        local scripts = LocalPlayer.PlayerScripts
+        local fcOk, fighterCtrl = pcall(require, scripts.Controllers.FighterController)
+        if not fcOk or not fighterCtrl or not fighterCtrl.LocalFighter then return end
+        local item = fighterCtrl.LocalFighter.EquippedItem
+        if not item then
+            ready = false
+            return
+        end
+        local function get_property(key)
+            local ok, val = pcall(function()
+                if item.Get then return item:Get(key) end
+                return item[key] or (item.Data and item.Data[key]) or (item.Info and item.Info[key])
+            end)
+            return ok and val or nil
+        end
+        local ammo = get_property("CurrentAmmo") or get_property("Ammo") or get_property("Bullets") or get_property("MagazineAmmo")
+        local reloading = get_property("Reloading") or get_property("IsReloading")
+        if item.Info and type(item.Info) == "table" then
+            if ammo == nil then ammo = item.Info.CurrentAmmo or item.Info.Ammo end
+            if item.Info.Reloading == true or item.Info.IsReloading == true then
+                reloading = true
+            end
+        end
+        if reloading == true or (typeof(ammo) == "number" and ammo <= 0) then
+            ready = false
+        end
+    end)
+    return ready
+end
+
+local function v26061()
+    local targetHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not targetHRP or not L389_46 then return end
+    targetHRP.CFrame = L389_46
+    if L273_20 then
+        targetHRP.AssemblyLinearVelocity = L273_20
+    end
+    L389_46 = nil
+    L273_20 = nil
+end
+
+pcall(function() RunService:UnbindFromRenderStep("RestoreDesyncPerfect") end)
+pcall(function() RunService:BindToRenderStep("RestoreDesyncPerfect", 0, v26061) end)
+RunService.RenderStepped:Connect(v26061)
+
+task.spawn(function()
+    xpcall(function()
+        local scripts = LocalPlayer.PlayerScripts
+        local fcOk, fighterCtrl = pcall(require, scripts.Controllers.FighterController)
+        local _, enumLib = pcall(require, ReplicatedStorage.Modules.EnumLibrary)
+        local useItemRemote = ReplicatedStorage.Remotes.Replication.Fighter.UseItem
+        local startShootingEnum
+        pcall(function() startShootingEnum = enumLib:ToEnum("StartShooting") end)
+
+        local function getEquippedObjectId()
+            if not (fcOk and fighterCtrl) then return nil end
+            local fighter = fighterCtrl.LocalFighter
+            if not fighter then return nil end
+            local item = fighter.EquippedItem
+            if not item then return nil end
+            local okId, objId = pcall(function() return item:Get("ObjectID") end)
+            if okId and objId then return objId end
+            okId, objId = pcall(function() return item.Data and item.Data.ObjectID end)
+            return okId and objId or nil
+        end
+
+        local function buildShotPayload(originPos, targetPart)
+            local targetPos = targetPart.Position
+            local lookCF = CFrame.lookAt(originPos, targetPos)
+            local rx, ry, rz = lookCF:ToOrientation()
+            local posPacket = {
+                [utf8.char(0)] = originPos.X, [utf8.char(1)] = originPos.Y, [utf8.char(2)] = originPos.Z,
+                [utf8.char(3)] = rx, [utf8.char(4)] = ry, [utf8.char(5)] = rz,
+            }
+            local relCF = targetPart.CFrame:ToObjectSpace(CFrame.new(targetPos))
+            local rrx, rry, rrz = relCF:ToOrientation()
+            return {
+                [utf8.char(1)] = {
+                    [utf8.char(0)] = posPacket,
+                    [utf8.char(1)] = posPacket,
+                    [utf8.char(2)] = targetPart,
+                    [utf8.char(3)] = {
+                        [utf8.char(0)] = relCF.X, [utf8.char(1)] = relCF.Y, [utf8.char(2)] = relCF.Z,
+                        [utf8.char(3)] = rrx, [utf8.char(4)] = rry, [utf8.char(5)] = rrz,
+                    },
+                },
+            }
+        end
+
+        v71190 = function(on)
+            if _10O0lO then _10O0lO:Disconnect(); _10O0lO = nil end
+            if not on then return end
+
+            local cachedId = nil
+            _10O0lO = RunService.Heartbeat:Connect(function()
+                if not ragebotEnabled then return end
+                if not a73b35c96 or not a73b35c96.Parent then return end
+
+                local hitModel = a73b35c96:FindFirstAncestorOfClass("Model") or a73b35c96.Parent
+                local hitPlayer = Players:GetPlayerFromCharacter(hitModel)
+                if not hitPlayer or hitPlayer == LocalPlayer then return end
+                if is_teammate(hitPlayer) then return end
+                if get_character(hitPlayer) then return end
+                if get_player_from_part(hitPlayer) then return end
+
+                local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if not myHRP then return end
+
+                local objId = getEquippedObjectId()
+                if objId then cachedId = objId else objId = cachedId end
+                if not objId then return end
+
+                local originPos = a73b35c96.Position + Vector3.new(0, 0.1, 0)
+                local payload = buildShotPayload(originPos, a73b35c96)
+                pcall(function()
+                    useItemRemote:FireServer(objId, startShootingEnum, payload, nil)
+                end)
+
+                local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                if tool then
+                    pcall(function() tool:Activate() end)
+                end
+            end)
+        end
+    end, function() end)
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.01)
+        if ragebotEnabled then
+            local originPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position or Vector3.zero
+            local bestPlayer = nil
+            local bestDist = math.huge
+
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character and not is_teammate(player) then
+                    if get_character(player) then continue end
+                    if get_player_from_part(player) then continue end
+                    local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
+                    local targetHum = player.Character:FindFirstChild("Humanoid")
+                    if targetHRP and targetHum and targetHum.Health > 0 then
+                        local dist = (Vector3.new(originPos.X, 0, originPos.Z) - Vector3.new(targetHRP.Position.X, 0, targetHRP.Position.Z)).Magnitude
+                        if dist < bestDist then
+                            bestDist = dist
+                            bestPlayer = player
+                        end
+                    end
+                end
+            end
+
+            a73b35c96 = (bestPlayer and bestPlayer.Character) and get_character_root(bestPlayer.Character) or nil
+        else
+            a73b35c96 = nil
+        end
+    end
+end)
+
+RunService.Heartbeat:Connect(function(dt: number)
+    pcall(function()
+        local char = LocalPlayer.Character
+        local targetHRP = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChild("Humanoid")
+        if not targetHRP or (hum and hum.Health <= 0) then return end
+
+        if L389_46 then
+            v26061()
+        end
+
+        local bothActive = ragebotEnabled and voidspamEnabled
+
+        if bothActive then
+            cycleTimer += dt
+            if cycleMode == "VOID" and cycleTimer >= VOID_HOLD_SECONDS then
+                cycleMode = "ABOVE"
+                cycleTimer = 0
+            elseif cycleMode == "ABOVE" and cycleTimer >= ABOVE_HOLD_SECONDS then
+                cycleMode = "VOID"
+                cycleTimer = 0
+            end
+
+            if cycleMode == "VOID" then
+                if not a39b72c33 then
+                    a39b72c33 = targetHRP.Position
+                end
+                L389_46 = targetHRP.CFrame
+                L273_20 = targetHRP.AssemblyLinearVelocity
+                local randDir = Vector3.new(math.random(-100, 100), math.random(-100, 100), math.random(-100, 100)).Unit
+                local voidPos = a39b72c33 + randDir * _8080x566
+                local rotOnly = L389_46 - L389_46.Position
+                targetHRP.CFrame = CFrame.new(voidPos) * rotOnly
+                return
+            end
+
+            a39b72c33 = nil
+            if a73b35c96 and has_ammo_or_ready() then
+                local hitModel = a73b35c96:FindFirstAncestorOfClass("Model") or a73b35c96.Parent
+                local hitPlayer = Players:GetPlayerFromCharacter(hitModel)
+                if hitPlayer and get_player_from_part(hitPlayer) then return end
+                L389_46 = targetHRP.CFrame
+                L273_20 = targetHRP.AssemblyLinearVelocity
+                local targetPos = a73b35c96.Position
+                targetHRP.CFrame = CFrame.new(targetPos + Vector3.new(0, FOLLOW_HEIGHT_OFFSET, 0), targetPos)
+            end
+            return
+        end
+
+        cycleTimer = 0
+        cycleMode = "VOID"
+
+        if ragebotEnabled and a73b35c96 and has_ammo_or_ready() then
+            local hitModel = a73b35c96:FindFirstAncestorOfClass("Model") or a73b35c96.Parent
+            local hitPlayer = Players:GetPlayerFromCharacter(hitModel)
+            if hitPlayer and get_player_from_part(hitPlayer) then return end
+            L389_46 = targetHRP.CFrame
+            L273_20 = targetHRP.AssemblyLinearVelocity
+            local targetPos = a73b35c96.Position
+            targetHRP.CFrame = CFrame.new(targetPos + Vector3.new(0, FOLLOW_HEIGHT_OFFSET, 0), targetPos)
+            return
+        end
+
+        if voidspamEnabled then
+            if not a39b72c33 then
+                a39b72c33 = targetHRP.Position
+            end
+            L389_46 = targetHRP.CFrame
+            L273_20 = targetHRP.AssemblyLinearVelocity
+            local randDir = Vector3.new(math.random(-100, 100), math.random(-100, 100), math.random(-100, 100)).Unit
+            local voidPos = a39b72c33 + randDir * _8080x566
+            local rotOnly = L389_46 - L389_46.Position
+            targetHRP.CFrame = CFrame.new(voidPos) * rotOnly
+            return
+        end
+
+        a39b72c33 = nil
+    end)
+end)
+
+local function mountCombinedToggleUi()
+    local existing = CoreGui:FindFirstChild("ZzmopCombinedRageVoidGui")
+    if existing then
+        existing:Destroy()
+    end
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "ZzmopCombinedRageVoidGui"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+    local ok = pcall(function()
+        screenGui.Parent = CoreGui
+    end)
+    if not ok then
+        screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    end
+
+    local panel = Instance.new("Frame")
+    panel.Name = "TogglePanel"
+    panel.Size = UDim2.fromOffset(220, 92)
+    panel.Position = UDim2.new(0.5, -110, 0.12, 0)
+    panel.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
+    panel.BorderSizePixel = 0
+    panel.Active = true
+    panel.Draggable = true
+    panel.Parent = screenGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = panel
+
+    local rageBtn = Instance.new("TextButton")
+    rageBtn.Name = "RagebotToggle"
+    rageBtn.Size = UDim2.new(1, -16, 0, 34)
+    rageBtn.Position = UDim2.fromOffset(8, 8)
+    rageBtn.BackgroundColor3 = Color3.fromRGB(165, 38, 38)
+    rageBtn.TextColor3 = Color3.fromRGB(245, 245, 245)
+    rageBtn.Font = Enum.Font.GothamBold
+    rageBtn.TextSize = 13
+    rageBtn.Text = "RAGEBOT : OFF"
+    rageBtn.Parent = panel
+
+    local rageCorner = Instance.new("UICorner")
+    rageCorner.CornerRadius = UDim.new(0, 6)
+    rageCorner.Parent = rageBtn
+
+    local voidBtn = Instance.new("TextButton")
+    voidBtn.Name = "VoidspamToggle"
+    voidBtn.Size = UDim2.new(1, -16, 0, 34)
+    voidBtn.Position = UDim2.fromOffset(8, 50)
+    voidBtn.BackgroundColor3 = Color3.fromRGB(165, 38, 38)
+    voidBtn.TextColor3 = Color3.fromRGB(245, 245, 245)
+    voidBtn.Font = Enum.Font.GothamBold
+    voidBtn.TextSize = 13
+    voidBtn.Text = "VOIDSPAM : OFF"
+    voidBtn.Parent = panel
+
+    local voidCorner = Instance.new("UICorner")
+    voidCorner.CornerRadius = UDim.new(0, 6)
+    voidCorner.Parent = voidBtn
+
+    rageBtn.MouseButton1Click:Connect(function()
+        ragebotEnabled = not ragebotEnabled
+        cycleTimer = 0
+        cycleMode = "VOID"
+        if ragebotEnabled then
+            rageBtn.Text = "RAGEBOT : ON"
+            rageBtn.BackgroundColor3 = Color3.fromRGB(36, 148, 72)
+        else
+            a73b35c96 = nil
+            rageBtn.Text = "RAGEBOT : OFF"
+            rageBtn.BackgroundColor3 = Color3.fromRGB(165, 38, 38)
+        end
+        pcall(function() v71190(ragebotEnabled) end)
+    end)
+
+    voidBtn.MouseButton1Click:Connect(function()
+        voidspamEnabled = not voidspamEnabled
+        cycleTimer = 0
+        cycleMode = "VOID"
+        if voidspamEnabled then
+            voidBtn.Text = "VOIDSPAM : ON"
+            voidBtn.BackgroundColor3 = Color3.fromRGB(36, 148, 72)
+        else
+            a39b72c33 = nil
+            voidBtn.Text = "VOIDSPAM : OFF"
+            voidBtn.BackgroundColor3 = Color3.fromRGB(165, 38, 38)
+        end
+    end)
+end
+
+mountCombinedToggleUi()
